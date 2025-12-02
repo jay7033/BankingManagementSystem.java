@@ -1,157 +1,202 @@
- import java.util.ArrayList;
-import java.util.Scanner;
+ import java.util.*;
 
-class Account {
-    private int accountId;
+abstract class BankAccount {
+    private String accountNumber;
     private String accountHolderName;
-    private double balance;
+    private String pin;
+    protected double balance;
 
-    public Account(int accountId, String accountHolderName, double initialBalance) {
-        this.accountId = accountId;
+    public BankAccount(String accountNumber, String accountHolderName, double initialBalance, String pin) {
+        this.accountNumber = accountNumber;
         this.accountHolderName = accountHolderName;
         this.balance = initialBalance;
+        this.pin = pin;
     }
 
-    public int getAccountId() {
-        return accountId;
-    }
-
-    public String getAccountHolderName() {
-        return accountHolderName;
-    }
-
-    public double getBalance() {
-        return balance;
+    public boolean authenticate(String enteredpin) {
+        return pin.equals(enteredpin);
     }
 
     public void deposit(double amount) {
         if (amount > 0) {
             balance += amount;
-            System.out.println("Deposited $" + amount + ". New balance: $" + balance);
+            System.out.println("Deposited: " + amount);
         } else {
             System.out.println("Invalid deposit amount.");
         }
     }
 
-    public void withdraw(double amount) {
-        if (amount > 0 && amount <= balance) {
-            balance -= amount;
-            System.out.println("Withdrew $" + amount + ". New balance: $" + balance);
-        } else {
-            System.out.println("Invalid withdrawal amount or insufficient funds.");
-        }
+    public abstract void withdraw(double amount);
+
+    public double getBalance() {
+        return balance;
+    }
+
+    public String getAccountNumber() {
+        return accountNumber;
+    }
+
+    public String getAccountHolderName() {
+        return accountHolderName;
+    }
+}
+
+class SavingsAccount extends BankAccount {
+    private double minimumBalance = 500.0;
+
+    public SavingsAccount(String accountNumber, String accountHolderName, double initialBalance, String pin) {
+        super(accountNumber, accountHolderName, initialBalance, pin);
     }
 
     @Override
-    public String toString() {
-        return "Account ID: " + accountId + ", Holder: " + accountHolderName + ", Balance: $" + balance;
-    }
-}
-
-class Bank {
-    private ArrayList<Account> accounts;
-    private int nextAccountId;
-
-    public Bank() {
-        accounts = new ArrayList<>();
-        nextAccountId = 1;
-    }
-
-    public void createAccount(String accountHolderName, double initialBalance) {
-        Account newAccount = new Account(nextAccountId++, accountHolderName, initialBalance);
-        accounts.add(newAccount);
-        System.out.println("Account created successfully. " + newAccount);
-    }
-
-    public Account findAccount(int accountId) {
-        for (Account account : accounts) {
-            if (account.getAccountId() == accountId) {
-                return account;
-            }
-        }
-        return null;
-    }
-
-    public void listAccounts() {
-        if (accounts.isEmpty()) {
-            System.out.println("No accounts found.");
+    public void withdraw(double amount) {
+        if (amount > 0 && (balance - amount) >= minimumBalance) {
+            balance -= amount;
+            System.out.println("Withdrawn: " + amount);
         } else {
-            for (Account account : accounts) {
-                System.out.println(account);
-            }
+            System.out.println("Insufficient balance or invalid amount.");
         }
     }
 }
 
-public class Main {
+class CurrentAccount extends BankAccount {
+    private double overdraftLimit = 1000.0;
+
+    public CurrentAccount(String accountNumber, String accountHolderName, double initialBalance, String pin) {
+        super(accountNumber, accountHolderName, initialBalance, pin);
+    }
+
+    @Override
+    public void withdraw(double amount) {
+        if (amount > 0 && (balance - amount) >= -overdraftLimit) {
+            balance -= amount;
+            System.out.println("Withdrawn: " + amount);
+        } else {
+            System.out.println("Overdraft limit exceeded or invalid amount.");
+        }
+    }
+}
+
+public class BankingSystem {
+    private static Map<String, BankAccount> accounts = new HashMap<String, BankAccount>();
+
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
-        Bank bank = new Bank();
 
-        while (true) {
-            System.out.println("\n--- Bank Management System ---");
+        int option;
+        do {
+            System.out.println("\n--- Banking System Menu ---");
             System.out.println("1. Create Account");
-            System.out.println("2. Deposit Money");
-            System.out.println("3. Withdraw Money");
-            System.out.println("4. Check Balance");
-            System.out.println("5. List All Accounts");
-            System.out.println("6. Exit");
-            System.out.print("Choose an option: ");
-            int choice = scanner.nextInt();
-            scanner.nextLine(); // Consume newline
+            System.out.println("2. Login to Account");
+            System.out.println("3. Exit");
+            System.out.print("Enter your choice: ");
+            option = scanner.nextInt();
+
+            switch (option) {
+                case 1:
+                    createAccount(scanner);
+                    break;
+                case 2:
+                    login(scanner);
+                    break;
+                case 3:
+                    System.out.println("Thank you for using the Banking System!");
+                    break;
+                default:
+                    System.out.println("Invalid choice. Please try again.");
+            }
+
+        } while (option != 3);
+
+        scanner.close();
+    }
+
+    private static void createAccount(Scanner scanner) {
+        scanner.nextLine(); 
+        System.out.print("Enter Account Type (1 for Savings, 2 for Current): ");
+        int accountType = scanner.nextInt();
+        scanner.nextLine();
+
+        System.out.print("Enter Account Number: ");
+        String accountNumber = scanner.nextLine();
+
+        if (accounts.containsKey(accountNumber)) {
+            System.out.println("Account already exists with this number!");
+            return;
+        }
+
+        System.out.print("Enter Account Holder Name: ");
+        String accountHolderName = scanner.nextLine();
+
+        System.out.print("Enter Initial Balance: ");
+        double initialBalance = scanner.nextDouble();
+        scanner.nextLine();
+
+        System.out.print("Set 4-digit PIN: ");
+        String pin = scanner.nextLine();
+
+        BankAccount account;
+        if (accountType == 1) {
+            account = new SavingsAccount(accountNumber, accountHolderName, initialBalance, pin);
+        } else {
+            account = new CurrentAccount(accountNumber, accountHolderName, initialBalance, pin);
+        }
+
+        accounts.put(accountNumber, account);
+        System.out.println("Account created successfully!");
+    }
+
+    private static void login(Scanner scanner) {
+        scanner.nextLine();
+        System.out.print("Enter Account Number: ");
+        String accNum = scanner.nextLine();
+
+        BankAccount account = accounts.get(accNum);
+        if (account == null) {
+            System.out.println("Account not found!");
+            return;
+        }
+
+        System.out.print("Enter PIN: ");
+        String pin = scanner.nextLine();
+
+        if (!account.authenticate(pin)) {
+            System.out.println("Invalid PIN!");
+            return;
+        }
+
+        int choice;
+        do {
+            System.out.println("\n--- Account Menu ---");
+            System.out.println("1. Deposit");
+            System.out.println("2. Withdraw");
+            System.out.println("3. Balance Inquiry");
+            System.out.println("4. Logout");
+            System.out.print("Enter your choice: ");
+            choice = scanner.nextInt();
 
             switch (choice) {
                 case 1:
-                    System.out.print("Enter account holder name: ");
-                    String name = scanner.nextLine();
-                    System.out.print("Enter initial balance: ");
-                    double balance = scanner.nextDouble();
-                    bank.createAccount(name, balance);
+                    System.out.print("Enter amount to deposit: ");
+                    double depositAmount = scanner.nextDouble();
+                    account.deposit(depositAmount);
                     break;
                 case 2:
-                    System.out.print("Enter account ID: ");
-                    int depId = scanner.nextInt();
-                    Account depAccount = bank.findAccount(depId);
-                    if (depAccount != null) {
-                        System.out.print("Enter deposit amount: ");
-                        double depAmount = scanner.nextDouble();
-                        depAccount.deposit(depAmount);
-                    } else {
-                        System.out.println("Account not found.");
-                    }
+                    System.out.print("Enter amount to withdraw: ");
+                    double withdrawAmount = scanner.nextDouble();
+                    account.withdraw(withdrawAmount);
                     break;
                 case 3:
-                    System.out.print("Enter account ID: ");
-                    int withId = scanner.nextInt();
-                    Account withAccount = bank.findAccount(withId);
-                    if (withAccount != null) {
-                        System.out.print("Enter withdrawal amount: ");
-                        double withAmount = scanner.nextDouble();
-                        withAccount.withdraw(withAmount);
-                    } else {
-                        System.out.println("Account not found.");
-                    }
+                    System.out.println("Current Balance: " + account.getBalance());
                     break;
                 case 4:
-                    System.out.print("Enter account ID: ");
-                    int balId = scanner.nextInt();
-                    Account balAccount = bank.findAccount(balId);
-                    if (balAccount != null) {
-                        System.out.println("Balance: $" + balAccount.getBalance());
-                    } else {
-                        System.out.println("Account not found.");
-                    }
+                    System.out.println("Logged out successfully.");
                     break;
-                case 5:
-                    bank.listAccounts();
-                    break;
-                case 6:
-                    System.out.println("Exiting system.");
-                    scanner.close();
-                    return;
                 default:
-                    System.out.println("Invalid option. Try again.");
+                    System.out.println("Invalid choice. Please try again.");
             }
-        }
+
+        } while (choice != 4);
     }
 }
+
